@@ -1,0 +1,4 @@
+# Opcionales, solo necesarios si se usa un módulo GPS real por puerto serie:
+pyserial
+pynmea2
+folium 
