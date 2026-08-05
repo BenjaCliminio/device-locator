@@ -1,0 +1,117 @@
+# device-locator
+
+Herramienta de geolocalización del dispositivo local, con lógica de
+**fallback en tres niveles**: GPS real → triangulación por WiFi →
+geolocalización por IP pública. Genera un reporte JSON y un mapa
+interactivo (`ubicacion.html`) con la ubicación detectada.
+
+Proyecto de portfolio en ciberseguridad enfocado en geolocalización,
+consumo de APIs y buenas prácticas de privacidad/consentimiento.
+
+## ⚠️ Uso ético y legal
+
+Este software está diseñado **exclusivamente** para ejecutarse en
+dispositivos propios o con autorización explícita del propietario.
+
+Usar esta herramienta para rastrear a otra persona **sin su
+consentimiento** puede constituir un delito (stalking, violación de
+la privacidad, acceso indebido a sistemas) según la legislación de
+cada país. El script exige una confirmación interactiva explícita
+antes de ejecutar cualquier acción, y no está pensado ni distribuido
+como una herramienta de vigilancia encubierta.
+
+## Cómo funciona
+
+El script intenta obtener la ubicación en este orden, usando el
+primer método que tenga éxito:
+
+1. **GPS real** — si hay un módulo GPS conectado por puerto serie
+   (ej. NEO-6M), lee las tramas NMEA y extrae latitud/longitud
+   exactas. Requiere `pyserial` y `pynmea2` (opcionales).
+2. **Triangulación WiFi** — escanea los puntos de acceso WiFi
+   cercanos (BSSID + intensidad de señal) y consulta la
+   [API abierta de Mylnikov](https://www.mylnikov.org/) para estimar
+   la posición. No requiere API key.
+3. **Geolocalización por IP** — si no hay GPS ni WiFi disponibles,
+   usa la IP pública del dispositivo contra
+   [ip-api.com](https://ip-api.com/) para obtener una ubicación
+   aproximada (generalmente a nivel de ciudad).
+
+## Instalación
+
+```bash
+git clone <tu-repo>
+cd device-locator
+pip install -r requirements.txt
+```
+
+## Uso
+
+```bash
+python3 locator.py
+```
+
+El script va a pedir confirmación antes de continuar. Al finalizar
+genera:
+
+- `reporte_ubicacion.json` — datos crudos del resultado (fuente,
+  coordenadas, precisión, timestamp)
+- `ubicacion.html` — mapa interactivo con la ubicación marcada
+
+## Notas sobre los proveedores externos
+
+Este proyecto depende de servicios gratuitos de terceros para la
+geolocalización por WiFi e IP. Al ser servicios sin costo, pueden
+tener caídas intermitentes o límites de uso — esto es esperable y
+es justamente el motivo por el que el script está diseñado con
+lógica de fallback: si un método falla, pasa automáticamente al
+siguiente.
+
+**Historial de cambios de proveedor:**
+
+- La primera versión usaba **Mozilla Location Service (MLS)** para
+  la triangulación WiFi. Mozilla anunció en marzo de 2024 el retiro
+  del servicio y el 12 de junio de 2024 eliminó las API keys de
+  terceros, dejándolo inutilizable para este tipo de proyectos. Se
+  reemplazó por la **API abierta de Mylnikov**
+  (`api.mylnikov.org`), que sigue activa y no requiere key.
+- El fallback por IP usaba originalmente `ipapi.co`, que tiene un
+  límite de requests muy bajo en su plan gratuito (fácil de agotar
+  solo probando el script varias veces seguidas). Se reemplazó por
+  `ip-api.com`, con un límite más generoso (45 req/min).
+- El parseo de redes WiFi en Windows (`netsh wlan show networks`)
+  originalmente buscaba las etiquetas en inglés ("BSSID", "Signal"),
+  lo que fallaba en sistemas con Windows en español (donde la salida
+  dice "Señal"). Se reescribió para detectar direcciones MAC y
+  porcentajes por patrón (regex), sin depender del idioma del
+  sistema operativo.
+
+**Si el paso de WiFi falla con un error 5xx**: es un problema del
+lado del servidor de Mylnikov (API mantenida por un desarrollador
+individual, no un servicio comercial), no del script. El fallback a
+IP debería activarse automáticamente sin intervención.
+
+## Roadmap (Etapa 2)
+
+La idea a futuro es adaptar esta lógica a un sistema tipo "Find My",
+para casos como recuperación de una PC robada o un rastreador para
+mascotas, usando hardware dedicado que no dependa del WiFi/datos del
+propio dispositivo rastreado:
+
+- **ESP32/Arduino + módulo GPS (NEO-6M) + módulo GSM (SIM800L)**:
+  arquitectura tipo rastreador GPS comercial, enviando coordenadas
+  por SMS/HTTP a un servidor propio.
+- **LoRa/LoRaWAN**: para casos de bajo consumo y sin necesidad de SIM.
+- **Red BLE de terceros** (estilo AirTag): más eficiente en batería
+  pero requiere una red de dispositivos participantes.
+
+## Stack
+
+- Python 3
+- `requests` — consumo de APIs de geolocalización
+- `folium` — generación de mapas interactivos
+- Mylnikov Geo-Location API (WiFi)
+- ip-api.com (fallback por IP)
+
+## Licencia
+
